@@ -12,7 +12,7 @@ object BasicParsers {
     }
   }
 
-  val parseChar = (expected: Char) => new Parser[Char] {
+  def parseChar(expected: Char) = new Parser[Char] {
     override def apply(str: String): Option[(Char, String)] = {
       if (str.head != expected) None
       else Some(str.head, str.tail)
@@ -55,11 +55,13 @@ object BasicParsers {
     _ <- parseWhitespace
   } yield ()
 
-  def parseMany[A](parser: Parser[A], values: Seq[A] = Vector.empty): Parser[Seq[A]] = {
+  def parseMany[A](parser: Parser[A],
+                   separator: Char = ',',
+                   values: Seq[A] = Vector.empty): Parser[Seq[A]] = {
     parser.flatMap { value =>
       val allValues = values :+ value
-      parseCharIgnoreWhitespace(',')
-        .flatMap(_ => parseMany(parser, allValues))
+      parseCharIgnoreWhitespace(separator)
+        .flatMap(_ => parseMany(parser, separator, allValues))
         .orElse(constant(allValues))
     } orElse constant(values)
   }
