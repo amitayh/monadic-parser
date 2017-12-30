@@ -2,20 +2,18 @@ package amitayh
 
 import amitayh.Parser.pure
 
-import scala.collection.immutable.Seq
-
 object BasicParsers {
 
-  val parseInt: Parser[Int] = str => {
-    val digits = str.takeWhile(_.isDigit)
-    if (digits.isEmpty) None
-    else Some(digits.toInt, str.drop(digits.length))
+  def parseWith[A](filter: Char => Boolean,
+                   transform: String => A): Parser[A] = str => {
+    val matching = str.takeWhile(filter)
+    if (matching.isEmpty) None
+    else Some(transform(matching), str.drop(matching.length))
   }
 
-  def parseChar(expected: Char): Parser[Char] = str => {
-    if (str.head != expected) None
-    else Some(str.head, str.tail)
-  }
+  val parseInt: Parser[Int] = parseWith(_.isDigit, _.toInt)
+
+  def parseChar(expected: Char): Parser[Char] = parseWith(_ == expected, _.head)
 
   def parseString(expected: String): Parser[String] = str => {
     if (!str.startsWith(expected)) None
@@ -32,10 +30,8 @@ object BasicParsers {
     }
   }
 
-  val parseWhitespace: Parser[Int] = str => {
-    val whitespace = str.takeWhile(_.isWhitespace).length
-    Some(whitespace, str.drop(whitespace))
-  }
+  val parseWhitespace: Parser[Int] =
+    parseWith(_.isWhitespace, _.length) orElse pure(0)
 
   def parseCharIgnoreWhitespace(expected: Char): Parser[Unit] = for {
     _ <- parseWhitespace
@@ -43,17 +39,16 @@ object BasicParsers {
     _ <- parseWhitespace
   } yield ()
 
-  def parseTwoOrMore[A](item: Parser[A], separator: Parser[_]): Parser[Seq[A]] = for {
-    first <- item
+  def parseTwoOrMore[A](item: Parser[A], separator: Parser[_]): Parser[List[A]] = for {
+    head <- item
     _ <- separator
-    rest <- parseZeroOrMore(item, separator)
-  } yield first +: rest
+    tail <- parseOneOrMore(item, separator)
+  } yield head :: tail
 
-  def parseOne[A](item: Parser[A]): Parser[Seq[A]] = item.map(Vector(_))
+  def parseOneOrMore[A](item: Parser[A], separator: Parser[_]): Parser[List[A]] =
+    parseTwoOrMore(item, separator) orElse item.map(List(_))
 
-  def parseZeroOrMore[A](item: Parser[A], separator: Parser[_]): Parser[Seq[A]] =
-    parseTwoOrMore(item, separator) orElse
-      parseOne(item) orElse
-      pure(Vector.empty)
+  def parseZeroOrMore[A](item: Parser[A], separator: Parser[_]): Parser[List[A]] =
+    parseOneOrMore(item, separator) orElse pure(Nil)
 
 }
