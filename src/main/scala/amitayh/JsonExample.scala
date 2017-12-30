@@ -16,6 +16,8 @@ object JsonExample extends App {
 
   // ------------------------------------------------------------------------
 
+  private val separator = parseCharIgnoreWhitespace(',')
+
   val parseJsonNull = parseString("null").map(_ => NullNode)
 
   val parseJsonNumber = parseInt.map(NumberNode)
@@ -31,7 +33,7 @@ object JsonExample extends App {
 
   val parseJsonArray = for {
     _ <- parseCharIgnoreWhitespace('[')
-    values <- parseMany(parseJson)
+    values <- parseZeroOrMore(parseJson, separator)
     _ <- parseCharIgnoreWhitespace(']')
   } yield ArrayNode(values)
 
@@ -43,7 +45,7 @@ object JsonExample extends App {
 
   val parseJsonObject = for {
     _ <- parseCharIgnoreWhitespace('{')
-    entries <- parseMany(parseObjectEntry)
+    entries <- parseZeroOrMore(parseObjectEntry, separator)
     _ <- parseCharIgnoreWhitespace('}')
   } yield ObjectNode(entries.toMap)
 

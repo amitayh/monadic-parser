@@ -1,52 +1,40 @@
 package amitayh
 
+import amitayh.Parser.pure
+
 import scala.collection.immutable.Seq
 
 object BasicParsers {
 
-  val parseInt = new Parser[Int] {
-    override def apply(str: String): Option[(Int, String)] = {
-      val digits = str.takeWhile(_.isDigit)
-      if (digits.isEmpty) None
-      else Some(digits.toInt, str.drop(digits.length))
-    }
+  val parseInt: Parser[Int] = str => {
+    val digits = str.takeWhile(_.isDigit)
+    if (digits.isEmpty) None
+    else Some(digits.toInt, str.drop(digits.length))
   }
 
-  def parseChar(expected: Char) = new Parser[Char] {
-    override def apply(str: String): Option[(Char, String)] = {
-      if (str.head != expected) None
-      else Some(str.head, str.tail)
-    }
+  def parseChar(expected: Char): Parser[Char] = str => {
+    if (str.head != expected) None
+    else Some(str.head, str.tail)
   }
 
-  def parseString(expected: String) = new Parser[String] {
-    override def apply(str: String): Option[(String, String)] = {
-      if (!str.startsWith(expected)) None
-      else Some(expected, str.drop(expected.length))
-    }
+  def parseString(expected: String): Parser[String] = str => {
+    if (!str.startsWith(expected)) None
+    else Some(expected, str.drop(expected.length))
   }
 
   def parseOneOf(options: String*): Parser[String] =
     options.map(parseString).reduce(_ orElse _)
 
-  def parseStringUntil(end: Char) = new Parser[String] {
-    override def apply(str: String): Option[(String, String)] = {
-      str.indexOf(end) match {
-        case -1 => Some(str, "")
-        case endPosition => Some(str.take(endPosition), str.drop(endPosition))
-      }
+  def parseStringUntil(end: Char): Parser[String] = str => {
+    str.indexOf(end) match {
+      case -1 => Some(str, "")
+      case endPosition => Some(str.take(endPosition), str.drop(endPosition))
     }
   }
 
-  def constant[A](value: A) = new Parser[A] {
-    override def apply(str: String): Option[(A, String)] = Some(value, str)
-  }
-
-  val parseWhitespace = new Parser[Int] {
-    override def apply(str: String): Option[(Int, String)] = {
-      val whitespace = str.takeWhile(_.isWhitespace).length
-      Some(whitespace, str.drop(whitespace))
-    }
+  val parseWhitespace: Parser[Int] = str => {
+    val whitespace = str.takeWhile(_.isWhitespace).length
+    Some(whitespace, str.drop(whitespace))
   }
 
   def parseCharIgnoreWhitespace(expected: Char): Parser[Unit] = for {
@@ -55,15 +43,17 @@ object BasicParsers {
     _ <- parseWhitespace
   } yield ()
 
-  def parseMany[A](parser: Parser[A],
-                   separator: Char = ',',
-                   values: Seq[A] = Vector.empty): Parser[Seq[A]] = {
-    parser.flatMap { value =>
-      val allValues = values :+ value
-      parseCharIgnoreWhitespace(separator)
-        .flatMap(_ => parseMany(parser, separator, allValues))
-        .orElse(constant(allValues))
-    } orElse constant(values)
-  }
+  def parseTwoOrMore[A](item: Parser[A], separator: Parser[_]): Parser[Seq[A]] = for {
+    first <- item
+    _ <- separator
+    rest <- parseZeroOrMore(item, separator)
+  } yield first +: rest
+
+  def parseOne[A](item: Parser[A]): Parser[Seq[A]] = item.map(Vector(_))
+
+  def parseZeroOrMore[A](item: Parser[A], separator: Parser[_]): Parser[Seq[A]] =
+    parseTwoOrMore(item, separator) orElse
+      parseOne(item) orElse
+      pure(Vector.empty)
 
 }
