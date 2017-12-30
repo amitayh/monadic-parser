@@ -13,7 +13,10 @@ object BasicParsers {
 
   val parseInt: Parser[Int] = parseWith(_.isDigit, _.toInt)
 
-  def parseChar(expected: Char): Parser[Char] = parseWith(_ == expected, _.head)
+  def parseChar(expected: Char): Parser[Char] = str => {
+    if (str.head != expected) None
+    else Some(str.head, str.tail)
+  }
 
   def parseString(expected: String): Parser[String] = str => {
     if (!str.startsWith(expected)) None
